@@ -133,3 +133,7 @@ Watching for file changes with StatReloader
 Watching for file changes with StatReloader
 Watching for file changes with StatReloader
 "GET / HTTP/1.1" 200 10284
+Watching for file changes with StatReloader
+"GET / HTTP/1.1" 200 10284
+Not Found: /favicon.ico
+"GET /favicon.ico HTTP/1.1" 404 179
