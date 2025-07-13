@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+
+{% block title %}Subir CV - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>
+                    Subir Documentos
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    
+                    <div class="drag-drop-area" id="dragDropArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                        <h5>Arrastra archivos aquí</h5>
+                        <p class="text-muted">o haz clic para seleccionar archivos</p>
+                        
+                        <div class="mt-3">
+                            {{ form.file }}
+                        </div>
+                        
+                        <button type="button" class="btn btn-outline-primary mt-3" onclick="document.getElementById('{{ form.file.id_for_label }}').click()">
+                            <i class="fas fa-folder-open me-2"></i>
+                            Seleccionar Archivos
+                        </button>
+                    </div>
+                    
+                    <div class="file-info">
+                        <h6 class="text-primary">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Formatos permitidos:
+                        </h6>
+                        <ul class="mb-2">
+                            <li><strong>PDF</strong> (.pdf)</li>
+                            <li><strong>Microsoft Word</strong> (.doc, .docx)</li>
+                        </ul>
+                        <p class="mb-0">
+                            <i class="fas fa-weight-hanging me-2"></i>
+                            <strong>Tamaño máximo:</strong> 10MB
+                        </p>
+                    </div>
+                    
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="fas fa-upload me-2"></i>
+                            Subir Archivo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Archivos Subidos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="documentsContainer">
+                    {% if documents %}
+                        {% for document in documents %}
+                            <div class="document-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-file-pdf text-danger me-2"></i>
+                                            {{ document.original_filename }}
+                                        </h6>
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>
+                                            {{ document.uploaded_at|date:"d/m/Y H:i" }}
+                                            <span class="ms-2">
+                                                <i class="fas fa-weight me-1"></i>
+                                                {{ document.get_file_size_display }}
+                                            </span>
+                                        </small>
+                                        <br>
+                                        <span class="badge bg-success status-badge mt-1">
+                                            <i class="fas fa-check me-1"></i>
+                                            {{ document.get_status_display }}
+                                        </span>
+                                    </div>
+                                    <div class="ms-2">
+                                        <form method="post" action="{% url 'delete_document' document.id %}" style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                                    onclick="return confirm('¿Está seguro de eliminar este archivo?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-file-alt fa-3x mb-3"></i>
+                            <h6>No hay archivos subidos aún</h6>
+                            <p>Los archivos aparecerán aquí después de subirlos</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dragDropArea = document.getElementById('dragDropArea');
+    const fileInput = document.getElementById('{{ form.file.id_for_label }}');
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Drag and drop functionality
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dragDropArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dragDropArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dragDropArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    dragDropArea.addEventListener('drop', handleDrop, false);
+    dragDropArea.addEventListener('click', () => fileInput.click());
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    function highlight(e) {
+        dragDropArea.classList.add('dragover');
+    }
+    
+    function unhighlight(e) {
+        dragDropArea.classList.remove('dragover');
+    }
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect();
+        }
+    }
+    
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (file) {
+            // Validar tipo de archivo
+            const allowedTypes = ['application/pdf', 'application/msword', 
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            const allowedExtensions = ['.pdf', '.doc', '.docx'];
+            
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedExtensions.includes(fileExtension)) {
+                alert('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validar tamaño
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSize) {
+                alert('El archivo es demasiado grande. El tamaño máximo permitido es 10MB.');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Mostrar información del archivo
+            const fileName = file.name;
+            const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+            
+            dragDropArea.innerHTML = `
+                <i class="fas fa-file-check fa-3x text-success mb-3"></i>
+                <h6 class="text-success">Archivo seleccionado:</h6>
+                <p class="mb-2"><strong>${fileName}</strong></p>
+                <p class="text-muted mb-3">Tamaño: ${fileSize}</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFileInput()">
+                    <i class="fas fa-times me-1"></i>
+                    Cambiar archivo
+                </button>
+            `;
+        }
+    }
+    
+    // Reset file input
+    window.resetFileInput = function() {
+        fileInput.value = '';
+        dragDropArea.innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+            <h5>Arrastra archivos aquí</h5>
+            <p class="text-muted">o haz clic para seleccionar archivos</p>
+            <button type="button" class="btn btn-outline-primary mt-3" onclick="document.getElementById('{{ form.file.id_for_label }}').click()">
+                <i class="fas fa-folder-open me-2"></i>
+                Seleccionar Archivos
+            </button>
+        `;
+    };
+    
+    // Form submission with loading state
+    uploadForm.addEventListener('submit', function(e) {
+        if (!fileInput.files[0]) {
+            e.preventDefault();
+            alert('Por favor, seleccione un archivo antes de continuar.');
+            return;
+        }
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Subiendo...';
+        submitBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}
